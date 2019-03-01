@@ -2,8 +2,10 @@ package com.example.nean.whitescreen;
 
 import android.app.ActivityManager;
 import android.app.ActivityOptions;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.PixelFormat;
@@ -11,8 +13,10 @@ import android.hardware.display.DisplayManager;
 import android.hardware.display.VirtualDisplay;
 import android.media.Image;
 import android.media.ImageReader;
+import android.media.projection.MediaProjection;
 import android.net.ConnectivityManager;
 import android.os.Bundle;
+import android.os.Handler;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
@@ -81,6 +85,18 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
+    private BroadcastReceiver mReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (action.equals(Intent.ACTION_SCREEN_OFF)) {
+                Log.v(MainActivity.TAG, "MainActivity...ScreenOff");
+            } else if (action.equals(Intent.ACTION_SCREEN_ON)) {
+                Log.v(MainActivity.TAG, "MainActivity...ScreenOn");
+            }
+        }
+    };
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -91,6 +107,11 @@ public class MainActivity extends AppCompatActivity {
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         mDisplayManager = (DisplayManager) this.getSystemService(Context.DISPLAY_SERVICE);
+
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(Intent.ACTION_SCREEN_ON);
+        filter.addAction(Intent.ACTION_SCREEN_OFF);
+        this.registerReceiver(mReceiver, filter);
 
         mSurfaceView = this.findViewById(R.id.surfaceview);
         final int screenWidth = this.getResources().getDisplayMetrics().widthPixels;
@@ -184,9 +205,14 @@ public class MainActivity extends AppCompatActivity {
                 flags |= 1 << 7;/*DisplayManager.VIRTUAL_DISPLAY_FLAG_ROTATES_WITH_CONTENT*/
                 flags |= 1 << 8;/*DisplayManager.VIRTUAL_DISPLAY_FLAG_DESTROY_CONTENT_ON_REMOVAL*/
                 flags |= DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY;
-                //TODO:Create virtual display with uniqueId
-                mVirtualDisplay = mDisplayManager.createVirtualDisplay("nean_test", 2880, 1600, 560,
-                        /*mVirtualDisplayImageReader.getSurface()*/mSurface, flags);
+                String uniqueId = "277f1a09-b88d-4d1e-8716-796f114d09cd";
+                mVirtualDisplay = createVirtualDisplay("nean", 2880, 1600, 560, null, flags, uniqueId);
+                if (mVirtualDisplay == null) {
+                    Log.w(TAG, "Create virtual display with uniqueId failed!Create on with no uniqueId");
+                    mVirtualDisplay = mDisplayManager.createVirtualDisplay("nean_test", 2880, 1600, 560,
+                        /*mVirtualDisplayImageReader.getSurface()*/null, flags);
+                }
+                mVirtualDisplay.setSurface(mSurface);
             } else {
                 Log.v(TAG, "VirtualDisplay:" + mVirtualDisplay.toString() + " exists...do not create again");
             }
@@ -241,6 +267,19 @@ public class MainActivity extends AppCompatActivity {
             Log.e(TAG, "getDisplayType error!", e);
         }
         return DISPLAY_TYPE_UNKNOWN;
+    }
+
+    private VirtualDisplay createVirtualDisplay(String displayName, int width, int height, int dpi, Surface surface, int flags, String uniqueId) {
+        try {
+            Class<?> sysClass = Class.forName("android.hardware.display.DisplayManager");
+            Method method = sysClass.getMethod("createVirtualDisplay", MediaProjection.class, String.class, int.class, int.class, int.class, Surface.class, int.class, VirtualDisplay.Callback.class, Handler.class, String.class);
+            Object obj = method.invoke(mDisplayManager, null, displayName, width, height, dpi, surface, flags, null, null, uniqueId);
+            VirtualDisplay virtualDisplay = (VirtualDisplay)obj;
+            return virtualDisplay;
+        } catch (Exception e) {
+            Log.e(TAG, "createVirtualDisplay error!", e);
+        }
+        return null;
     }
 
     private void saveImageToFile(Image image) {

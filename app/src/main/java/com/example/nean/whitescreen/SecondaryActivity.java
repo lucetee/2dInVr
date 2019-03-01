@@ -1,6 +1,9 @@
 package com.example.nean.whitescreen;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.hardware.input.InputManager;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
@@ -26,6 +29,18 @@ public class SecondaryActivity extends AppCompatActivity {
     private MediaPlayer mMediaPlayer;
     private SurfaceView mSurfaceView;
 
+    private BroadcastReceiver mReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (action.equals(Intent.ACTION_SCREEN_OFF)) {
+                Log.v(MainActivity.TAG, "SecondaryActivity...ScreenOff");
+            } else if (action.equals(Intent.ACTION_SCREEN_ON)) {
+                Log.v(MainActivity.TAG, "SecondaryActivity...ScreenOn");
+            }
+        }
+    };
+
     private Handler mHandler = new Handler() {
         @Override
         public void handleMessage(Message msg) {
@@ -42,6 +57,10 @@ public class SecondaryActivity extends AppCompatActivity {
         mTextView = this.findViewById(R.id.textview);
         initSurfaceView();
         mHandler.sendEmptyMessageDelayed(1001, 5 * 1000L);
+        IntentFilter filter = new IntentFilter();
+        filter.addAction(Intent.ACTION_SCREEN_OFF);
+        filter.addAction(Intent.ACTION_SCREEN_ON);
+        this.registerReceiver(mReceiver, filter);
     }
 
     @Override
