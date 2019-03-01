@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">WhiteScreen</string>
+    <string name="action_settings">Settings</string>
+
+    <string name="secondary_activity_text">Secondary activity text updated!</string>
+    <string name="secondary_activity_button_clicked">Secondary activity button clicked!</string>
+</resources>
