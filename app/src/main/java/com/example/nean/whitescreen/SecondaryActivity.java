@@ -16,9 +16,12 @@ import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
+import android.view.Window;
+import android.view.WindowManager;
 import android.widget.TextView;
 
 import java.io.IOException;
@@ -28,6 +31,7 @@ public class SecondaryActivity extends AppCompatActivity {
     private TextView mTextView;
     private MediaPlayer mMediaPlayer;
     private SurfaceView mSurfaceView;
+    private Surface mSurface;
 
     private BroadcastReceiver mReceiver = new BroadcastReceiver() {
         @Override
@@ -52,6 +56,7 @@ public class SecondaryActivity extends AppCompatActivity {
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
         setContentView(R.layout.secondary_activity_view);
         Log.v(MainActivity.TAG, "SecondaryActivity onCreate!");
         mTextView = this.findViewById(R.id.textview);
@@ -142,7 +147,7 @@ public class SecondaryActivity extends AppCompatActivity {
     public void initMediaPlayer() {
         Uri uriParse = Uri.parse("file:///storage/emulated/0/Dolphins_720.mp4");
         mMediaPlayer = new MediaPlayer();
-        //mp.setSurface(surfaceTest.getSurface());
+        //mMediaPlayer.setSurface(mSurface);
         mMediaPlayer.setDisplay(mSurfaceView.getHolder());
         mMediaPlayer.setLooping(true);
         mMediaPlayer.setAudioStreamType(AudioManager.STREAM_MUSIC);
@@ -203,8 +208,7 @@ public class SecondaryActivity extends AppCompatActivity {
                 mMediaPlayer.start();
             }
         } catch (IllegalStateException e) {
-            Log.e(MainActivity.TAG, "IllegalStateException occurs");
-            e.printStackTrace();
+            Log.e(MainActivity.TAG, "IllegalStateException occurs", e);
         }
     }
 
@@ -214,7 +218,17 @@ public class SecondaryActivity extends AppCompatActivity {
         mSurfaceView.getHolder().addCallback(new SurfaceHolder.Callback() {
             @Override
             public void surfaceCreated(SurfaceHolder surfaceHolder) {
-                initMediaPlayer();
+//                if (mSurface != null) {
+//                    mSurface.release();
+//                }
+//                mSurface = surfaceHolder.getSurface();
+                if (mMediaPlayer == null) {
+                    initMediaPlayer();
+                } else {
+                    Log.v(MainActivity.TAG, "Set newly created surface to mediaplayer");
+//                    mMediaPlayer.setSurface(surfaceHolder.getSurface());
+                    mMediaPlayer.setDisplay(surfaceHolder);
+                }
             }
 
             @Override
@@ -224,7 +238,9 @@ public class SecondaryActivity extends AppCompatActivity {
 
             @Override
             public void surfaceDestroyed(SurfaceHolder surfaceHolder) {
-
+//                if (mMediaPlayer != null) {
+//                    mMediaPlayer.setSurface(null);
+//                }
             }
         });
     }
@@ -248,6 +264,7 @@ public class SecondaryActivity extends AppCompatActivity {
             mMediaPlayer.stop();
             mMediaPlayer.release();
         }
+        this.unregisterReceiver(mReceiver);
         super.onDestroy();
     }
 }

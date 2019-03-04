@@ -91,6 +91,9 @@ public class MainActivity extends AppCompatActivity {
             String action = intent.getAction();
             if (action.equals(Intent.ACTION_SCREEN_OFF)) {
                 Log.v(MainActivity.TAG, "MainActivity...ScreenOff");
+                if (mVirtualDisplay != null) {
+                    mVirtualDisplay.setSurface(null);//This operation causes virtualdisplay goes to OFF state
+                }
             } else if (action.equals(Intent.ACTION_SCREEN_ON)) {
                 Log.v(MainActivity.TAG, "MainActivity...ScreenOn");
             }
@@ -120,7 +123,7 @@ public class MainActivity extends AppCompatActivity {
         mSurfaceView.getHolder().addCallback(new SurfaceHolder.Callback() {
             @Override
             public void surfaceCreated(SurfaceHolder surfaceHolder) {
-                Log.v(TAG, "surfaceCreated...");
+                Log.v(TAG, "MainActivity...surfaceCreated...");
                 if (mVirtualDisplay != null) {
                     mVirtualDisplay.setSurface(surfaceHolder.getSurface());
                 }
@@ -132,12 +135,12 @@ public class MainActivity extends AppCompatActivity {
 
             @Override
             public void surfaceChanged(SurfaceHolder surfaceHolder, int i, int i1, int i2) {
-                Log.v(TAG, "surfaceChanged...");
+                Log.v(TAG, "MainActivity...surfaceChanged...");
             }
 
             @Override
             public void surfaceDestroyed(SurfaceHolder surfaceHolder) {
-                Log.v(TAG, "surfaceDestroyed...");
+                Log.v(TAG, "MainActivity...surfaceDestroyed...");
             }
         });
 
@@ -233,7 +236,11 @@ public class MainActivity extends AppCompatActivity {
             options.setLaunchDisplayId(virtualDisplayId);
         }
         Log.v(TAG, "Start sencondary activity on display:" + options.getLaunchDisplayId());
-        Intent secondIntent = new Intent(this, SecondaryActivity.class);
+        //Intent secondIntent = new Intent(this, SecondaryActivity.class);
+        Intent secondIntent = new Intent();
+        String packageName = Utils.getProperty("nean.debug.multidisplay.packagename", "com.example.nean.whitescreen");
+        String classname = Utils.getProperty("nean.debug.multidisplay.classname", "com.example.nean.whitescreen.SecondaryActivity");
+        secondIntent.setClassName(packageName, classname);
         secondIntent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK|Intent.FLAG_ACTIVITY_NEW_TASK);
         startActivity(secondIntent, options.toBundle());
     }
@@ -341,6 +348,7 @@ public class MainActivity extends AppCompatActivity {
         }
 		if (requestCode == 1001) {
 			if (grantResults[2] == PackageManager.PERMISSION_GRANTED) {
+			    Log.v(TAG, "Permission check ok!");
 //				mCountDownLatch.countDown();
                 //handleVirtualDisplay();
 			} else {
@@ -367,7 +375,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private String keyCodeToString(int keyCode) {
-        String retVal = "";
+        String retVal;
         switch (keyCode) {
             case 1001:
                 retVal = "Confirm";
@@ -420,6 +428,7 @@ public class MainActivity extends AppCompatActivity {
         if (mVirtualDisplayImageReader != null) {
             mVirtualDisplayImageReader.setOnImageAvailableListener(null, null);
         }
+        this.unregisterReceiver(mReceiver);
         super.onDestroy();
     }
 
