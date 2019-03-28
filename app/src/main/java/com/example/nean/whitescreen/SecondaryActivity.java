@@ -101,13 +101,13 @@ public class SecondaryActivity extends AppCompatActivity {
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
-        Log.v(MainActivity.TAG, "SecondaryActivity onKeyDown...keyCode:" + keyCodeToString(keyCode));
+        if (Utils.getProperty("debug.nean.touch", "close").equalsIgnoreCase("open")) Log.v(MainActivity.TAG, "SecondaryActivity onKeyDown...keyCode:" + keyCodeToString(keyCode));
         return super.onKeyDown(keyCode, event);
     }
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        Log.v(MainActivity.TAG, "SecondaryActivity onTouchEvent...event:" + event.toString());
+        if (Utils.getProperty("debug.nean.touch", "close").equalsIgnoreCase("open")) Log.v(MainActivity.TAG, "SecondaryActivity onTouchEvent...event:" + event.toString());
         return super.onTouchEvent(event);
     }
 

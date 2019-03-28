@@ -4,4 +4,8 @@
 
     <string name="secondary_activity_text">Secondary activity text updated!</string>
     <string name="secondary_activity_button_clicked">Secondary activity button clicked!</string>
+
+    <string name="launch_activity_on_virtual_display">Launch on VD</string>
+    <string name="create_virtual_display">Create VD</string>
+    <string name="launch_activity_normal">Normal launch</string>
 </resources>

@@ -1,6 +1,5 @@
 package com.example.nean.whitescreen;
 
-import android.app.ActivityManager;
 import android.app.ActivityOptions;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -14,15 +13,15 @@ import android.hardware.display.VirtualDisplay;
 import android.media.Image;
 import android.media.ImageReader;
 import android.media.projection.MediaProjection;
-import android.net.ConnectivityManager;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
-import android.text.TextUtils;
 import android.util.Log;
+import android.util.SparseArray;
 import android.view.Display;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
@@ -33,6 +32,8 @@ import android.view.View;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.WindowManager;
+
+import com.pvr.PvrCallback;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -116,6 +117,8 @@ public class MainActivity extends AppCompatActivity {
         filter.addAction(Intent.ACTION_SCREEN_OFF);
         this.registerReceiver(mReceiver, filter);
 
+        registerPvrManagerCallback();
+
         mSurfaceView = this.findViewById(R.id.surfaceview);
         final int screenWidth = this.getResources().getDisplayMetrics().widthPixels;
         final int screenHeight = this.getResources().getDisplayMetrics().heightPixels;
@@ -144,7 +147,7 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        //FloatActionButton on bottom|start position
+        //FloatActionButton on bottom|start position---used to create virtual display
         FloatingActionButton fabDisplayInfo = (FloatingActionButton) findViewById(R.id.fab_1);
         fabDisplayInfo.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -164,21 +167,22 @@ public class MainActivity extends AppCompatActivity {
                 }
                 Snackbar.make(view, displaysInfo, Snackbar.LENGTH_LONG)
                         .setAction("Action", null).show();
+                createVirtualDisplayWithUniqueId();
             }
         });
 
-        //FloatActionButton on start|top position
+        //FloatActionButton on start|top position--used to launch activity in standard way
         FloatingActionButton fabHdmi = (FloatingActionButton) findViewById(R.id.fab_2);
         fabHdmi.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
 //                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
 //                        .setAction("Action", null).show();
-                launchSecondaryActivityOnHdmiDisplay();
+                launchSecondaryActivity();
             }
         });
 
-        //FloatActionButton on end|bottom position
+        //FloatActionButton on end|bottom position---used to launch activity on virtual display
         FloatingActionButton fabVirtual = (FloatingActionButton) findViewById(R.id.fab);
         fabVirtual.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -197,31 +201,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void launchSecondaryActivityOnVirtualDisplay() {
-        try {
-            if (mVirtualDisplayImageReader == null) {
-                mVirtualDisplayImageReader = ImageReader.newInstance(2880, 1600, PixelFormat.RGBA_8888, 5);
-                mVirtualDisplayImageReader.setOnImageAvailableListener(mImageReaderListener, null);
-            }
-            if (mVirtualDisplay == null) {
-                int flags = DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC;
-                flags |= 1 << 6;/*DisplayManager.VIRTUAL_DISPLAY_FLAG_SUPPORTS_TOUCH*/
-                flags |= 1 << 7;/*DisplayManager.VIRTUAL_DISPLAY_FLAG_ROTATES_WITH_CONTENT*/
-                flags |= 1 << 8;/*DisplayManager.VIRTUAL_DISPLAY_FLAG_DESTROY_CONTENT_ON_REMOVAL*/
-                flags |= DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY;
-                String uniqueId = "277f1a09-b88d-4d1e-8716-796f114d09cd";
-                mVirtualDisplay = createVirtualDisplay("nean", 2880, 1600, 560, null, flags, uniqueId);
-                if (mVirtualDisplay == null) {
-                    Log.w(TAG, "Create virtual display with uniqueId failed!Create on with no uniqueId");
-                    mVirtualDisplay = mDisplayManager.createVirtualDisplay("nean_test", 2880, 1600, 560,
-                        /*mVirtualDisplayImageReader.getSurface()*/null, flags);
-                }
-                mVirtualDisplay.setSurface(mSurface);
-            } else {
-                Log.v(TAG, "VirtualDisplay:" + mVirtualDisplay.toString() + " exists...do not create again");
-            }
-        } catch (Exception e) {
-            Log.v(TAG, "Exception when create virtual display!", e);
+        if (mVirtualDisplayImageReader == null) {
+            mVirtualDisplayImageReader = ImageReader.newInstance(2880, 1600, PixelFormat.RGBA_8888, 5);
+            mVirtualDisplayImageReader.setOnImageAvailableListener(mImageReaderListener, null);
         }
+        createVirtualDisplayWithUniqueId();
         ActivityOptions options = ActivityOptions.makeBasic();
         int virtualDisplayId = -1;
         for (Display display : mDisplayManager.getDisplays()) {
@@ -241,26 +225,16 @@ public class MainActivity extends AppCompatActivity {
         String packageName = Utils.getProperty("nean.debug.multidisplay.packagename", "com.example.nean.whitescreen");
         String classname = Utils.getProperty("nean.debug.multidisplay.classname", "com.example.nean.whitescreen.SecondaryActivity");
         secondIntent.setClassName(packageName, classname);
+        secondIntent.setDataAndType(Uri.parse("file:///storage/emulated/0/Dolphins_720.mp4"), "video/*.mp4");
         secondIntent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK|Intent.FLAG_ACTIVITY_NEW_TASK);
         startActivity(secondIntent, options.toBundle());
     }
 
-    private void launchSecondaryActivityOnHdmiDisplay() {
-        ActivityOptions options = ActivityOptions.makeBasic();
-        int hdmiDisplayId = -1;
-        for (Display display : mDisplayManager.getDisplays()) {
-            if (getDisplayType(display) == DISPLAY_TYPE_HDMI) {
-                hdmiDisplayId = display.getDisplayId();
-                Log.v(TAG, "hdmiDisplay Id:" + hdmiDisplayId);
-            }
-        }
-        if (hdmiDisplayId != -1) {
-            options.setLaunchDisplayId(hdmiDisplayId);
-        }
-        Log.v(TAG, "Start sencondary activity on display:" + options.getLaunchDisplayId());
+    private void launchSecondaryActivity() {
+        Log.v(TAG, "Start sencondary activity using standard api");
         Intent secondIntent = new Intent(this, SecondaryActivity.class);
         secondIntent.addFlags(Intent.FLAG_ACTIVITY_MULTIPLE_TASK|Intent.FLAG_ACTIVITY_NEW_TASK);
-        startActivity(secondIntent, options.toBundle());
+        startActivity(secondIntent);
     }
 
     private int getDisplayType(Display display) {
@@ -274,6 +248,30 @@ public class MainActivity extends AppCompatActivity {
             Log.e(TAG, "getDisplayType error!", e);
         }
         return DISPLAY_TYPE_UNKNOWN;
+    }
+
+    private void createVirtualDisplayWithUniqueId() {
+        try {
+            if (mVirtualDisplay == null) {
+                int flags = DisplayManager.VIRTUAL_DISPLAY_FLAG_PUBLIC;
+                flags |= 1 << 6;/*DisplayManager.VIRTUAL_DISPLAY_FLAG_SUPPORTS_TOUCH*/
+                flags |= 1 << 7;/*DisplayManager.VIRTUAL_DISPLAY_FLAG_ROTATES_WITH_CONTENT*/
+                flags |= 1 << 8;/*DisplayManager.VIRTUAL_DISPLAY_FLAG_DESTROY_CONTENT_ON_REMOVAL*/
+                flags |= DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY;
+                String uniqueId = "277f1a09-b88d-4d1e-8716-796f114d09cd";
+                mVirtualDisplay = createVirtualDisplay("nean", 2880, 1600, 560, null, flags, uniqueId);
+                if (mVirtualDisplay == null) {
+                    Log.w(TAG, "Create virtual display with uniqueId failed!Create on with no uniqueId");
+                    mVirtualDisplay = mDisplayManager.createVirtualDisplay("nean_test", 2880, 1600, 560,
+                            /*mVirtualDisplayImageReader.getSurface()*/null, flags);
+                }
+                mVirtualDisplay.setSurface(mSurface);
+            } else {
+                Log.v(TAG, "VirtualDisplay:" + mVirtualDisplay.toString() + " exists...do not create again");
+            }
+        } catch (Exception e) {
+            Log.v(TAG, "Exception when create virtual display!", e);
+        }
     }
 
     private VirtualDisplay createVirtualDisplay(String displayName, int width, int height, int dpi, Surface surface, int flags, String uniqueId) {
@@ -359,7 +357,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
-        Log.v(TAG, "MainActivity..onKeyDown..keyCode:" + keyCodeToString(keyCode));
+        if (Utils.getProperty("debug.nean.touch", "close").equalsIgnoreCase("open")) Log.v(TAG, "MainActivity..onKeyDown..keyCode:" + keyCodeToString(keyCode));
         //if ((keyCode == KeyEvent.KEYCODE_BACK)) {
             //System.out.println("按下了back键 onKeyDown()");
         //    return false;
@@ -370,7 +368,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        Log.v(MainActivity.TAG, "MainActivity onTouchEvent...event:" + event.toString());
+        if (Utils.getProperty("debug.nean.touch", "close").equalsIgnoreCase("open")) Log.v(MainActivity.TAG, "MainActivity onTouchEvent...event:" + event.toString());
         return super.onTouchEvent(event);
     }
 
@@ -429,6 +427,7 @@ public class MainActivity extends AppCompatActivity {
             mVirtualDisplayImageReader.setOnImageAvailableListener(null, null);
         }
         this.unregisterReceiver(mReceiver);
+        unregisterPvrManagerCallback();
         super.onDestroy();
     }
 
@@ -451,5 +450,40 @@ public class MainActivity extends AppCompatActivity {
             return true;
         }
         return super.onOptionsItemSelected(item);
+    }
+
+    private PvrCallback mPvrCallback = new PvrCallback() {
+        @Override
+        public void onEventChanged(Bundle extras) {
+            String data = extras.getString("vr2d_key_event", "null");
+            int action = Integer.valueOf(data.split(":")[0]).intValue();
+            int keyCode = Integer.valueOf(data.split(":")[1]).intValue();
+            Log.v(TAG, "onEventChanged...action:" + action + " keyCode:" + keyCode);
+            KeyEvent event = new KeyEvent(action, keyCode);
+
+        }
+    };
+    private void registerPvrManagerCallback() {
+        try {
+            Class<?> pvr = Class.forName("com.pvr.PvrManager");
+            Method getInstance = pvr.getDeclaredMethod("getInstance", Context.class);
+            Object pvrManager = getInstance.invoke(pvr, this);
+            Method addPvrCallback = pvrManager.getClass().getDeclaredMethod("addPvrCallback", PvrCallback.class);
+            addPvrCallback.invoke(pvrManager, mPvrCallback);
+        } catch (Exception e) {
+            Log.v(TAG, "Exception when registerPvrManagerCallback.", e);
+        }
+    }
+
+    private void unregisterPvrManagerCallback() {
+        try {
+            Class<?> pvr = Class.forName("com.pvr.PvrManager");
+            Method getInstance = pvr.getDeclaredMethod("getInstance", Context.class);
+            Object pvrManager = getInstance.invoke(pvr, this);
+            Method removePvrCallback = pvrManager.getClass().getDeclaredMethod("removePvrCallback", int.class);
+            removePvrCallback.invoke(pvrManager, 0);
+        } catch (Exception e) {
+            Log.v(TAG, "Exception when registerPvrManagerCallback.", e);
+        }
     }
 }
